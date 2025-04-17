@@ -1,0 +1,22 @@
+{
+        "grid_size": 28,
+        "stage_size": 7,
+        "render_wait": 1000,
+        "cardinality": 2,
+        "colors": ["yellow", "blue", "red", "green"],
+        "shapes": ["diamond", "heart", "spade", "club"],
+        "episode_length": 40,
+        "go_steps_limit": 4,
+        "push_steps_limit": 3,
+        "image_path": "env/28×28/",
+        "dictionary": {
+                "yellow": "jalne",
+                "blue": "blau",
+                "red": "rubie",
+                "green": "verde",
+                "diamond": "Diamante",
+                "heart": "Corde",
+                "spade": "Spada",
+                "club": "Trifolio"
+        }
+}
