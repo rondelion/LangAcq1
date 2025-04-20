@@ -8,6 +8,7 @@ from gymnasium import spaces
 from gymnasium.spaces import Dict, Box, Text, Discrete
 import pygame
 import random
+import copy
 
 
 class LangAcq1Env(gym.Env):
@@ -46,14 +47,11 @@ class LangAcq1Env(gym.Env):
         self.stage_image_size = self.stage_size * self.grid_size
         self.pos_xy = np.zeros((self.cardinality, 2), dtype=np.int8)
         self.dir_xy = np.zeros((self.cardinality, 2), dtype=np.int8)
-        self.object_size = np.ones(self.cardinality, dtype=np.int8)
-        self.brightness = np.ones(self.cardinality, dtype=np.int8)
+        self.prev_distance = 0.0
 
-        self.action_space = Discrete(2)
         self.stage = np.zeros((self.stage_size, self.stage_size, len(self.shapes) + len(self.colors)), dtype=np.uint8)
         self.text = ""
         self.render_mode = render_mode
-        self.isopen = True
         self.episode_count = 0
         # self.dump = config['dump']
 
@@ -67,7 +65,9 @@ class LangAcq1Env(gym.Env):
 
     def step(self, action):
         # calculate the next positions unhindered
-        path = 0
+        path = [0, 0]
+        prev_pos = copy.copy(self.pos_xy)
+        prev_dir = copy.copy(self.dir_xy)
         npuh = self.pos_xy + self.dir_xy
         pred = False
         # choose the subject
@@ -82,50 +82,61 @@ class LangAcq1Env(gym.Env):
                 self.dir_xy[i][0] = -1 * self.dir_xy[i][0]  # reverse direction
                 npuh[i][0] = self.pos_xy[i][0]
                 collided = True
+                self.push_steps = 0
+                self.go_steps[i] = 0
                 if not pred and subject == i:
                     self.text = self.text + "colpa le muro"
                     pred = True
-                path = 1
+                path[0] = 1  # x
             if npuh[i][1] >= self.stage_size or npuh[i][1] < 0:   # the upper/lower wall
                 self.dir_xy[i][1] = -1 * self.dir_xy[i][1]  # reverse direction
                 npuh[i][1] = self.pos_xy[i][1]
                 collided = True
+                self.push_steps = 0
+                self.go_steps[i] = 0
                 if not pred and subject == i:
                     self.text = self.text + "colpa le muro"
                     pred = True
-                path = 2
+                path[1] = 1  # y
         if self.cardinality > 1:
             # object collision: if the next positions unhindered overlap
             if np.array_equal(npuh[0], npuh[1]) or \
                     (np.array_equal(self.pos_xy[0], npuh[1]) and np.array_equal(self.pos_xy[1], npuh[0])):  # flip
                 collided = True
+                self.push_steps = 0
+                self.go_steps = np.zeros(self.cardinality, dtype=np.int8)
                 if not pred:
                     self.text = self.text + "colpa " + self.dictionary[self.objects[1 - subject]["shape"]]
                     pred = True
                 for j in range(2):  # x, y
-                        if self.dir_xy[1][j] == 1 and self.pos_xy[0][j] >= self.stage_size - 2:
-                            self.dir_xy[1][j] = -1
-                        elif self.dir_xy[0][j] == 1 and self.pos_xy[1][j] >= self.stage_size - 2:
-                            self.dir_xy[0][j] = -1
-                        elif self.dir_xy[1][j] == -1 and self.pos_xy[0][j] <= 1:
-                            self.dir_xy[1][j] = 1
-                        elif self.dir_xy[0][j] == -1 and self.pos_xy[1][j] <= 1:
-                            self.dir_xy[0][j] = 1
-                        else:
-                            if self.dir_xy[0][j] == 0:  # one's component j is 0; other is moving
-                                self.dir_xy[0][j] = self.dir_xy[1][j]  # resuming other's motion
-                                self.dir_xy[1][j] = 0
-                                path = 4
-                            elif self.dir_xy[1][j] == 0:  # one's component j is 0; other is moving
-                                self.dir_xy[1][j] = self.dir_xy[0][j]  # resuming other's motion
-                                self.dir_xy[0][j] = 0
-                                path = 5
-                            elif self.dir_xy[0][j] == -1 * self.dir_xy[0][j]:   # opposite direction
-                                self.dir_xy[0][j] = -1 * self.dir_xy[0][j]  # reverse
-                                self.dir_xy[1][j] = -1 * self.dir_xy[1][j]  # reverse
-                                path = 6
+                    if self.dir_xy[1][j] == 1 and self.pos_xy[1][j] >= self.stage_size - 2:
+                        self.dir_xy[1][j] = -1
+                        path[j] = 2
+                    elif self.dir_xy[0][j] == 1 and self.pos_xy[0][j] >= self.stage_size - 2:
+                        self.dir_xy[0][j] = -1
+                        path[j] = 3
+                    elif self.dir_xy[1][j] == -1 and self.pos_xy[1][j] <= 1:
+                        self.dir_xy[1][j] = 1
+                        path[j] = 4
+                    elif self.dir_xy[0][j] == -1 and self.pos_xy[0][j] <= 1:
+                        self.dir_xy[0][j] = 1
+                        path[j] = 5
+                    else:
+                        if self.dir_xy[0][j] == 0:  # one's component j is 0; other is moving
+                            self.dir_xy[0][j] = self.dir_xy[1][j]  # resuming other's motion
+                            self.dir_xy[1][j] = 0
+                            path[j] = 6
+                        elif self.dir_xy[1][j] == 0:  # one's component j is 0; other is moving
+                            self.dir_xy[1][j] = self.dir_xy[0][j]  # resuming other's motion
+                            self.dir_xy[0][j] = 0
+                            path[j] = 7
+                        elif self.dir_xy[0][j] == -1 * self.dir_xy[1][j]:   # opposite direction
+                            self.dir_xy[0][j] = -1 * self.dir_xy[0][j]  # reverse
+                            self.dir_xy[1][j] = -1 * self.dir_xy[1][j]  # reverse
+                            path[j] = 8
                 npuh = self.pos_xy + self.dir_xy
-        self.pos_xy = npuh
+                pass
+        # self.pos_xy = npuh
         if not collided:
             for i in range(self.cardinality):
                 if self.go_steps[i] > self.go_steps_limit:
@@ -137,34 +148,38 @@ class LangAcq1Env(gym.Env):
                     if subject == i and not pred:
                         if self.go_steps[i] > 1:
                             pred = True
+                            distance = np.linalg.norm(self.pos_xy[i] - self.pos_xy[1 - i])
                             if np.abs(self.dir_xy[i]).max() == 0:
                                 self.text = self.text + "pausa"
+                            elif 1.5 >= distance >= self.prev_distance and \
+                                    not np.array_equal(self.dir_xy[i], self.dir_xy[1 - i]):
+                                 self.text = self.text + "passa " + self.dictionary[self.objects[1 - i]["shape"]]
+                                 # 0 < self.pos_xy[i, 0] < self.stage_size - 1 and \
+                                 # 0 < self.pos_xy[i, 1] < self.stage_size - 1:
                             else:
-                                distance = np.linalg.norm(self.pos_xy[i] - self.pos_xy[1 - i])
-                                if abs(distance.max()) <= 1 and np.abs(self.dir_xy[1 - i]).max() == 0 and \
-                                        0 < self.pos_xy[i, 0] < self.stage_size - 1 and \
-                                        0 < self.pos_xy[i, 1] < self.stage_size - 1:
-                                    self.text = self.text + "passa " + \
-                                                self.dictionary[self.objects[1 - i]["shape"]]
-                                else:
-                                    self.text = self.text + "va"
-                                    if self.dir_xy[i][1] == 1:
-                                        self.text = self.text + " sub"
-                                    elif self.dir_xy[i][1] == -1:
-                                        self.text = self.text + " sup"
-                                    if self.dir_xy[i][0] == 1:
-                                        self.text = self.text + " dextre"
-                                    elif self.dir_xy[i][0] == -1:
-                                        self.text = self.text + " sinistre"
+                                self.text = self.text + "va"
+                                if self.dir_xy[i][1] == 1:
+                                    self.text = self.text + " sub"
+                                elif self.dir_xy[i][1] == -1:
+                                    self.text = self.text + " sup"
+                                if self.dir_xy[i][0] == 1:
+                                    self.text = self.text + " dextre"
+                                elif self.dir_xy[i][0] == -1:
+                                    self.text = self.text + " sinistre"
+                                if abs(distance.max()) <= 1 and np.array_equal(self.dir_xy[i], self.dir_xy[1-i]):
+                                    self.text = self.text + " con " + self.dictionary[self.objects[1 - i]["shape"]]
+                            self.prev_distance = distance
             # push
             if self.cardinality > 1:
                 if self.push_steps > 0:
-                    npuh = self.pos_xy + self.dir_xy
-                    if npuh.min() < 0 or npuh.max() >= self.stage_size:
+                    # npuh = self.pos_xy + self.dir_xy      # TODO ?
+                    if npuh.min() < 0 or npuh.max() >= self.stage_size or \
+                            not np.array_equal(self.dir_xy[0], self.dir_xy[1]):
                         self.push_steps = 0
                     else:
-                        self.pos_xy = npuh
+                        # self.pos_xy = npuh  # TODO ?
                         self.push_steps += 1
+                        """
                         self.text = self.dictionary[self.objects[self.pusher]["shape"]] + " pulsa " + \
                                     self.dictionary[self.objects[1 - self.pusher]["shape"]]
                         if np.random.randint(0, 10) < 3:
@@ -177,7 +192,8 @@ class LangAcq1Env(gym.Env):
                             elif self.dir_xy[self.pusher][0] == -1:
                                 self.text = self.text + " sinistre"
                         pred = True
-                    path = 7
+                        """
+                    path = [7, 7]
                     if self.push_steps >= self.push_steps_limit:
                         self.push_steps = 0
                 else:
@@ -227,6 +243,7 @@ class LangAcq1Env(gym.Env):
                                         self.dir_xy[i][1] = 0
                                         self.dir_xy[j][1] = 0
                                         self.push_steps = 1
+        self.pos_xy = npuh
         self.stage = np.zeros((self.stage_size, self.stage_size, len(self.shapes) + len(self.colors)), dtype=np.uint8)
         if not pred:
             self.text = ""
@@ -307,7 +324,6 @@ class LangAcq1Env(gym.Env):
     def close(self):
         pygame.display.quit()
         pygame.quit()
-        self.isopen = False
 
     def fill_color(self, image, color):
         size = image.get_size()
@@ -346,7 +362,6 @@ def main():
         print('Error: cardinality cannot be larger than 2!', file=sys.stderr)
         sys.exit(1)
     env = LangAcq1Env(config, render_mode="auto")
-    print(isinstance(env.action_space, spaces.Box))
     if args.text_dump is not None:
         text_dump_f = open(args.text_dump, mode='w')
     else:
