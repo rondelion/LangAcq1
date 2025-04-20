@@ -14,7 +14,7 @@ The environment outputs:
 
 #### Video
 
-https://github.com/user-attachments/assets/9b58a4d6-f725-445b-993d-06e5e26ad703
+https://github.com/user-attachments/assets/9b52f468-5424-47da-b2d7-98abac1cfc59
 
 ## How to Install
 * Install [Gymnasium](https://gymnasium.farama.org) and [PyGame](https://www.pygame.org/news) to run the environment (LangAcq1.py and LangAcq1.json).
