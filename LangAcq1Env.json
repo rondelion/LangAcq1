@@ -5,10 +5,10 @@
         "cardinality": 2,
         "colors": ["yellow", "blue", "red", "green"],
         "shapes": ["diamond", "heart", "spade", "club"],
-        "episode_length": 40,
-        "go_steps_limit": 4,
-        "push_steps_limit": 3,
+        "episode_length": 100,
+        "go_steps_limit": 2,
         "image_path": "env/28×28/",
+        "vicinity_radius" : 2,
         "dictionary": {
                 "yellow": "jalne",
                 "blue": "blau",

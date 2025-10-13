@@ -1,0 +1,79 @@
+{
+        "env": {
+                "grid_size": 28,
+                "stage_size": 7,
+                "render_wait": 1000,
+                "cardinality": 2,
+                "colors": [
+                        "yellow",
+                        "blue",
+                        "red",
+                        "green"
+                ],
+                "shapes": [
+                        "diamond",
+                        "heart",
+                        "spade",
+                        "club"
+                ],
+                "episode_length": 100,
+                "go_steps_limit": 3,
+                "image_path": "env/28×28/",
+                "dictionary": {
+                        "yellow": "jalne",
+                        "blue": "blau",
+                        "red": "rubie",
+                        "green": "verde",
+                        "diamond": "Diamante",
+                        "heart": "Corde",
+                        "spade": "Spada",
+                        "club": "Trifolio"
+                },
+                "verbs": [
+                  "va",
+                  "passa",
+                  "pausa",
+                  "colpa",
+                  "gira"
+                ],
+                "vicinity_radius" : 2
+        },
+        "groundedLM": {
+          "no_cuda": true,
+          "train_iteration": 1,
+          "max_text_len": 7,
+          "text_filter": "",
+          "word_predictor": {
+            "type": "cerenaut_pt_simple_ae",
+            "shuffle": true,
+            "save_model": true,
+            "optimizer": "Adam",
+            "learning_rate": 0.005,
+            "use_bias": true,
+            "encoder_nonlinearity": "leaky_relu",
+            "decoder_nonlinearity": "none",
+            "num_units": 60,
+            "input_dropout": 0.0,
+            "hidden_dropout": 0.0,
+            "loss_func": "nn.CrossEntropyLoss()",
+            "reg_param": 0.0,
+            "activation_func": "nn.Softmax()",
+            "activation_func_dim": -1
+          },
+          "saccade_predictor": {
+            "type": "cerenaut_pt_simple_ae",
+            "shuffle": true,
+            "save_model": true,
+            "optimizer": "Adam",
+            "learning_rate": 0.005,
+            "use_bias": true,
+            "encoder_nonlinearity": "relu",
+            "decoder_nonlinearity": "sigmoid",
+            "num_units": 10,
+            "input_dropout": 0.0,
+            "hidden_dropout": 0.0,
+            "loss_func": "nn.BCELoss()",
+            "reg_param": 0.0
+          }
+        }
+}
