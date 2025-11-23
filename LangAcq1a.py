@@ -6,7 +6,6 @@ import argparse
 import numpy as np
 import gymnasium as gym
 import pandas as pd
-import csv
 
 import torch
 from torch import optim
@@ -39,11 +38,11 @@ class LangAcq1a:
         self.turn = 0
         self.after_saccade = 0
         self.mode = config['mode']
-        self.prev_text = None   # for debug
+        self.prev_text = None  # for debug
         self.prev_prev_text = None  # for debug
         self.prev_prev_prev_text = None  # for debug
-        self.prev_motion = {}   # for debug
-        self.prev_prev_motion = {}   # for debug
+        self.prev_motion = {}  # for debug
+        self.prev_prev_motion = {}  # for debug
 
     def step(self):
         prev_stage = self.observation['stage']  # for debug
@@ -65,14 +64,14 @@ class LangAcq1a:
         self.prev_prev_text = self.prev_text.copy() if self.prev_text is not None else None
         self.prev_text = text.copy()
 
-    def make_stage_buffer(self, stage, text):   # text for debug
+    def make_stage_buffer(self, stage, text):  # text for debug
         stage_buffer = [[{} for i in range(self.stage_size)] for i in range(self.stage_size)]
         for i in range(self.stage_size):
             for j in range(self.stage_size):
                 stage_buffer[i][j]['shape'] = stage[i, j][:4]  # shape
                 stage_buffer[i][j]['color'] = stage[i, j][4:]  # color
                 stage_buffer[i][j]['motion'] = np.zeros(2)
-                prev_border = self.stage_buffer[i][j].get('border')   # for debug
+                prev_border = self.stage_buffer[i][j].get('border')  # for debug
                 turn = 0
                 if max(stage_buffer[i][j]['shape']) > 0 and max(stage_buffer[i][j]['color']) > 0 \
                         and 'shape' in self.stage_buffer[0][0]:
@@ -80,11 +79,11 @@ class LangAcq1a:
                     for k in range(self.stage_size):
                         for l in range(self.stage_size):
                             if np.array_equal(self.stage_buffer[k][l]['shape'], stage_buffer[i][j]['shape']) and \
-                               np.array_equal(self.stage_buffer[k][l]['color'], stage_buffer[i][j]['color']):
+                                    np.array_equal(self.stage_buffer[k][l]['color'], stage_buffer[i][j]['color']):
                                 stage_buffer[i][j]['prev_pos'] = np.array([k, l])
                                 motion = np.array(
                                     list(map(lambda x: 1 if x > 0 else -1 if x < 0 else 0,
-                                             np.array([i-k, j-l]))))  # normalize to -1, 0, 1
+                                             np.array([i - k, j - l]))))  # normalize to -1, 0, 1
                                 stage_buffer[i][j]['motion'] = motion
                                 prev_motion = self.stage_buffer[k][l]['motion'].copy()
                                 stage_buffer[i][j]['prev_motion'] = prev_motion.copy()
@@ -93,7 +92,7 @@ class LangAcq1a:
                                 self.prev_prev_motion[tuple(np.array(self.stage_buffer[k][l]['shape']))] = \
                                     prev_prev_motion.copy()
                                 if max(abs(motion)) > 0 and not np.array_equal(motion, prev_motion) and \
-                                        max(abs(prev_motion)) > 0:   # or
+                                        max(abs(prev_motion)) > 0:  # or
                                     turn = 1
                                 else:
                                     turn = 0
@@ -195,8 +194,8 @@ class LangAcq1a:
         pos = [-1, -1]
         for i in range(self.stage_size):
             for j in range(self.stage_size):
-                 if stage[i][j][:4] @ shape > 0:
-                     pos = [i, j]
+                if stage[i][j][:4] @ shape > 0:
+                    pos = [i, j]
         return pos
 
     def glm_train(self, epoch):
@@ -209,9 +208,9 @@ class LangAcq1a:
         self.prev_prev_motion = {}
 
 
-class GroundedLM:   # grounded language model
+class GroundedLM:  # grounded language model
     def __init__(self, config, embeddings_file, vocabulary, config_env):
-        self.config_env = config_env    # for debug
+        self.config_env = config_env  # for debug
         self.vocabulary = vocabulary
         self.idx2word = self.make_idx2word()
         use_cuda = not config["no_cuda"] and torch.cuda.is_available()
@@ -293,7 +292,8 @@ class GroundedLM:   # grounded language model
                      "verb": {"env": {}, "prd": {}, "mtc": {}},
                      "direction": {"env": 0, "prd": 0, "mtc": 0},
                      "con": {"env": 0, "prd": 0, "mtc": 0},
-                     "object": {"env": {}, "prd": {}, "mtc": {}}}
+                     "object": {"env": {}, "prd": {}, "mtc": {}},
+                     "colpa_object": {"env": 0, "prd": 0, "mtc": 0}}
 
     class GLMDataset(Dataset):
         def __init__(self):
@@ -337,7 +337,7 @@ class GroundedLM:   # grounded language model
             motion1h[2] = 1
         elif motion[1] > 0:
             motion1h[3] = 1
-        if np.max(np.abs(motion)) == 0:   # no motion
+        if np.max(np.abs(motion)) == 0:  # no motion
             motion1h[4] = 1
         return motion1h
 
@@ -351,7 +351,6 @@ class GroundedLM:   # grounded language model
         if len(text) == 0:
             return
         tokens = LangAcq1L.Lexicon.tokenizer(text, self.vocabulary)
-        sp_loss_sum = 0
         word = 'EOS'
         for token in tokens:
             if token == 0:  # BOS > EOS
@@ -372,7 +371,7 @@ class GroundedLM:   # grounded language model
                 if saccade:
                     self.saccade_cnt += 1
                 if predicted_saccade:
-                    self.saccade_predicted_cnt +=1
+                    self.saccade_predicted_cnt += 1
                 if saccade and predicted_saccade:
                     self.saccade_correctly_predicted_cnt += 1
                 self.add_word_predictor_dataset(agent, prev_embedding, token_vector)
@@ -387,7 +386,8 @@ class GroundedLM:   # grounded language model
         border = self.binary1hot(agent.border.max())
         turn = self.binary1hot(agent.turn)
         return torch.from_numpy(np.concatenate((agent.shape, agent.color, agent.vicinity, motion1h,
-                                border, turn, np.array([agent.after_saccade]))).astype(np.float32)).clone()
+                                                border, turn, np.array([agent.after_saccade]))).astype(
+            np.float32)).clone()
 
     def add_word_predictor_dataset(self, agent, prev_embedding, token_vector):
         context = self.get_context(agent)
@@ -417,12 +417,12 @@ class GroundedLM:   # grounded language model
         cnt = 0
         prev_embedding = torch.from_numpy(self.embeddings[self.vocabulary['EOS']].astype(np.float32)).clone()
         while cnt < self.max_text_len and word_decoded != "EOS":
-            agent.saccade(stage, no_shape, no_color, False)       # first take
+            agent.saccade(stage, no_shape, no_color, False)  # first take
             token_decoded = self.predict_word(agent, prev_embedding)
             embedding = torch.from_numpy(self.embeddings[token_decoded].astype(np.float32)).clone()
             forced_saccade = self.predict_saccade(prev_embedding, embedding)
             if forced_saccade:
-                agent.saccade(stage, no_shape, no_color, True)    # retake features
+                agent.saccade(stage, no_shape, no_color, True)  # retake features
                 token_decoded = self.predict_word(agent, prev_embedding)
             embedding = torch.from_numpy(self.embeddings[token_decoded].astype(np.float32)).clone()
             word_decoded = self.idx2word[token_decoded]
@@ -521,7 +521,6 @@ class GroundedLM:   # grounded language model
 
     def eval_predict(self, text, text_decoded, stage, agent):
         shape = ""
-        color = ""
         text_d_buf = text_decoded.strip().split()
         if text_d_buf[-1] == 'EOS':
             text_d_buf.pop()
@@ -543,20 +542,20 @@ class GroundedLM:   # grounded language model
                 else:
                     text_idx = -2  # subject not in the scene
             else:
-                text_idx = -2   # subject not in the scene
+                text_idx = -2  # subject not in the scene
             if text_idx > 0:
                 shape_vector = np.zeros(len(self.config_env['shapes']), dtype=np.int8)
                 shape_vector[self.config_env['shapes'].index(shape)] = 1
                 pos = agent.find_shape(stage, shape_vector)
                 if len(text_d_buf) > 1 and text_d_buf[1] in self.dictionary_R and \
                         self.dictionary_R[text_d_buf[1]] in self.config_env['colors']:
-                        next_word_d_index = 2
-                        color_vector = stage[pos[0]][pos[1]][4:]
-                        color_idx = np.argmax(color_vector)
-                        color = self.config_env['colors'][color_idx]
-                        self.eval["color"]["prd"][color] = self.eval["color"]["prd"].get(color, 0) + 1
-                        if color == self.dictionary_R[text_d_buf[1]]:
-                            self.eval["color"]["mtc"][color] = self.eval["color"]["mtc"].get(color, 0) + 1
+                    next_word_d_index = 2
+                    color_vector = stage[pos[0]][pos[1]][4:]
+                    color_idx = np.argmax(color_vector)
+                    color = self.config_env['colors'][color_idx]
+                    self.eval["color"]["prd"][color] = self.eval["color"]["prd"].get(color, 0) + 1
+                    if color == self.dictionary_R[text_d_buf[1]]:
+                        self.eval["color"]["mtc"][color] = self.eval["color"]["mtc"].get(color, 0) + 1
                 else:
                     next_word_d_index = 1
                 color_in_text = self.dictionary_R.get(text_buf[text_idx - 1][1], None)
@@ -579,46 +578,60 @@ class GroundedLM:   # grounded language model
                                 self.eval["excess"] += 1
                         elif verb == 'va':
                             lim_d = text_d_buf.index("con") if "con" in text_d_buf else len(text_d_buf)
-                            dirs_d = set(text_d_buf[next_word_d_index:lim_d])
-                            if len(dirs_d) > 0:
+                            dirs_d = set(text_d_buf[next_word_d_index:lim_d]) if len(text_d_buf) > next_word_d_index \
+                                else set([])
+                            if len(dirs_d) > 0 and text_d_buf[next_word_d_index] \
+                                    in ["sup", "sub", "dextre", "sinistre"]:
                                 self.eval["direction"]["prd"] += 1
-                            lim = text_buf[text_idx-1].index("con") if "con" in text_buf[text_idx-1] \
-                                else len(text_buf[text_idx-1])
-                            dirs = set(text_buf[text_idx-1][next_word_index:lim])
-                            if len(dirs) > 0:
+                            lim = text_buf[text_idx - 1].index("con") if "con" in text_buf[text_idx - 1] \
+                                else len(text_buf[text_idx - 1])
+                            dirs = set(text_buf[text_idx - 1][next_word_index:lim])
+                            if text_buf[text_idx - 1][next_word_index] in ["sup", "sub", "dextre", "sinistre"]:
                                 self.eval["direction"]["env"] += 1
                             if dirs_d == dirs:
                                 self.eval["direction"]["mtc"] += 1
-                            if "con" in text_buf[text_idx-1]:
+                            if "con" in text_buf[text_idx - 1]:
                                 self.eval["con"]["env"] += 1
                                 if len(text_d_buf) > lim_d and text_d_buf[lim_d] == "con":
                                     self.eval["con"]["prd"] += 1
                                     self.eval["con"]["mtc"] += 1
                                     if len(text_d_buf) > lim_d + 1:
-                                        self.eval_predict_object_check(text_buf[text_idx-1][lim + 1],
+                                        self.eval_predict_object_check(text_buf[text_idx - 1][lim + 1],
                                                                        text_d_buf[lim_d + 1])
                                     if len(text_d_buf) > lim_d + 2:
                                         self.eval["excess"] += 1
                             elif "con" in text_d_buf:
                                 self.eval["con"]["prd"] += 1
                         elif verb == "passa":
-                            self.eval_predict_object_check(text_buf[text_idx-1][next_word_index],
+                            self.eval_predict_object_check(text_buf[text_idx - 1][next_word_index],
                                                            text_d_buf[next_word_d_index])
-                            if len(text_d_buf) > next_word_d_index:
+                            if len(text_d_buf) > next_word_d_index + 1:
                                 self.eval["excess"] += 1
                         elif verb == "colpa":
-                            obj = text_buf[text_idx-1][next_word_index]
-                            obj_d = text_d_buf[next_word_d_index]
-                            self.eval_predict_object_check(obj, obj_d)
+                            obj = text_buf[text_idx - 1][next_word_index]
+                            if obj in self.dictionary_R and self.dictionary_R[obj] in self.config_env['shapes']:
+                                self.eval["colpa_object"]["env"] += 1
                             if len(text_d_buf) > next_word_d_index:
-                                self.eval["excess"] += 1
+                                obj_d = text_d_buf[next_word_d_index]
+                                if obj_d in self.dictionary_R and self.dictionary_R[obj_d] in self.config_env['shapes']:
+                                    self.eval["colpa_object"]["prd"] += 1
+                                    if obj_d == obj:
+                                        self.eval["colpa_object"]["mtc"] += 1
+                                self.eval_predict_object_check(obj, obj_d)
+                                if "le muro" in text_decoded:
+                                    if len(text_d_buf) > next_word_d_index + 2:
+                                        self.eval["excess"] += 1
+                                else:
+                                    if len(text_d_buf) > next_word_d_index + 1:
+                                        self.eval["excess"] += 1
                 if self.diff_output is not None:
-                    self.diff_output.write('> {}\n'.format(text[text_idx-1]))
+                    self.diff_output.write('> {}\n'.format(text[text_idx - 1]))
                     self.diff_output.write('< {}\n'.format(text_decoded))
 
     def eval_predict_object_check(self, obj, obj_d):
-        self.eval["object"]["env"][obj] = self.eval["object"]["env"].get(obj, 0) + 1
-        if obj_d == "le" or (obj_d in self.dictionary_R and self.dictionary_R[obj_d] in self.config_env['shapes']):
+        if obj in self.dictionary_R and self.dictionary_R[obj] in self.config_env['shapes']:
+            self.eval["object"]["env"][obj] = self.eval["object"]["env"].get(obj, 0) + 1
+        if obj_d in self.dictionary_R and self.dictionary_R[obj_d] in self.config_env['shapes']:
             self.eval["object"]["prd"][obj_d] = self.eval["object"]["prd"].get(obj_d, 0) + 1
             if obj_d == obj:
                 self.eval["object"]["mtc"][obj] = self.eval["object"]["mtc"].get(obj, 0) + 1
