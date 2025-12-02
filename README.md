@@ -1,6 +1,6 @@
 # LangAcq1
 A simple language learning environment and agent.  
-For detailed explanation, see the blog article (to be published in December 2025).
+For detailed explanation, see [the blog article](https://rondelionai.blogspot.com/2025/12/a-language-model-grounded-to-simple.html).
 
 ### Environment
 
